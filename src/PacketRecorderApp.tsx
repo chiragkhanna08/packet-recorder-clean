@@ -1,20 +1,24 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Box, Button, TextField, Typography, Paper, Stack } from '@mui/material';
+import {
+  Box,
+  Button,
+  Typography,
+  Paper,
+  TextField,
+  Stack,
+  Divider
+} from '@mui/material';
 
-interface Props {
-  onLogout: () => void;
-}
-
-const PacketRecorderApp: React.FC<Props> = ({ onLogout }) => {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<Blob[]>([]);
+const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const [cameraOn, setCameraOn] = useState(false);
-  const [recordingStatus, setRecordingStatus] = useState('idle');
+  const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording'>('idle');
   const [scannedCode, setScannedCode] = useState('');
   const [timer, setTimer] = useState(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastScannedCodeRef = useRef<string>('');
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const recordedChunks = useRef<Blob[]>([]);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const startCamera = async () => {
     try {
@@ -23,123 +27,150 @@ const PacketRecorderApp: React.FC<Props> = ({ onLogout }) => {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
-      mediaRecorderRef.current = new MediaRecorder(stream);
       setCameraOn(true);
-    } catch (error) {
-      console.error('Error accessing webcam:', error);
+    } catch (err) {
+      console.error('Error accessing webcam:', err);
     }
   };
 
   const stopCamera = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
     if (videoRef.current?.srcObject) {
-      (videoRef.current.srcObject as MediaStream).getTracks().forEach((track) => track.stop());
+      (videoRef.current.srcObject as MediaStream)
+        .getTracks()
+        .forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
     }
+    stopRecording();
     setCameraOn(false);
-    setRecordingStatus('idle');
-    if (timerRef.current) clearInterval(timerRef.current);
   };
 
   const startRecording = () => {
-    if (!mediaRecorderRef.current) return;
+    if (!videoRef.current || !videoRef.current.srcObject) return;
+    const stream = videoRef.current.srcObject as MediaStream;
+    recordedChunks.current = [];
+    mediaRecorder.current = new MediaRecorder(stream);
 
-    chunks.current = [];
-    mediaRecorderRef.current.ondataavailable = (e) => chunks.current.push(e.data);
-    mediaRecorderRef.current.onstop = () => {
-      const blob = new Blob(chunks.current, { type: 'video/webm' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${lastScannedCodeRef.current || 'packet'}.webm`;
-      a.click();
+    mediaRecorder.current.ondataavailable = (event) => {
+      if (event.data.size > 0) recordedChunks.current.push(event.data);
     };
-    mediaRecorderRef.current.start();
+
+    mediaRecorder.current.onstop = saveRecording;
+    mediaRecorder.current.start();
     setRecordingStatus('recording');
-    timerRef.current = setInterval(() => setTimer((prev) => prev + 1), 1000);
+
+    intervalRef.current = setInterval(() => {
+      setTimer((prev) => prev + 1);
+    }, 1000);
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-      if (timerRef.current) clearInterval(timerRef.current);
-      setTimer(0);
-      setRecordingStatus('idle');
+    if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
+      mediaRecorder.current.stop();
     }
+    setRecordingStatus('idle');
+    setTimer(0);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
+
+  const saveRecording = () => {
+    const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${scannedCode || 'packet'}_${Date.now()}.webm`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleScan = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      const code = (e.target as HTMLInputElement).value.trim();
-      if (!code) return;
+      const value = (e.target as HTMLInputElement).value.trim();
+      if (!value) return;
 
       if (recordingStatus === 'recording') {
         stopRecording();
+        setTimeout(() => {
+          setScannedCode(value);
+          startRecording();
+        }, 500);
+      } else {
+        setScannedCode(value);
+        startRecording();
       }
-
-      setScannedCode(code);
-      lastScannedCodeRef.current = code;
-      startRecording();
-
       (e.target as HTMLInputElement).value = '';
     }
   };
 
   return (
     <Box
-      sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(to right, #141e30, #243b55)',
-        padding: 3,
-      }}
+      minHeight="100vh"
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="flex-start"
+      sx={{ backgroundImage: 'linear-gradient(to right, #0f2027, #203a43, #2c5364)' }}
     >
-      <Paper
-        sx={{
-          p: 4,
-          background: 'linear-gradient(to bottom right, #0f2027, #203a43, #2c5364)',
-          color: 'white',
-          maxWidth: 1000,
-          mx: 'auto',
-          borderRadius: 3,
-        }}
-      >
-        <Typography
-          variant="h4"
-          gutterBottom
-          sx={{ fontWeight: 'bold', color: 'primary.main', letterSpacing: 1 }}
-        >
-          VIVATI ONLINE - Packet Recorder Dashboard
+      <Box mt={4} mb={2} textAlign="center">
+        <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#00bcd4' }}>
+          VIVATI ONLINE
         </Typography>
+        <Typography variant="subtitle1" color="gray">
+          Packet Recorder Dashboard
+        </Typography>
+      </Box>
 
-        <Stack direction="row" spacing={2} mb={3}>
+      <Paper sx={{ p: 4, width: '90%', maxWidth: '1200px' }} elevation={4}>
+        <Stack direction="row" spacing={2} justifyContent="center" mb={3}>
           <Button variant="contained" onClick={startCamera} disabled={cameraOn}>
             Start Camera
           </Button>
           <Button variant="outlined" onClick={stopCamera} disabled={!cameraOn}>
             Stop Camera
           </Button>
-          <Button variant="text" color="inherit" onClick={onLogout}>
+          <Button variant="text" color="error" onClick={onLogout}>
             Logout
           </Button>
         </Stack>
 
-        <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
           <Box flex={1}>
-            <video ref={videoRef} width="100%" height="auto" muted />
+            <Typography variant="h6" gutterBottom>
+              Live Camera Feed
+            </Typography>
+            <Box
+              sx={{
+                border: '2px solid #00bcd4',
+                borderRadius: 2,
+                overflow: 'hidden',
+              }}
+            >
+              <video ref={videoRef} width="100%" height="auto" muted style={{ borderRadius: 4 }} />
+            </Box>
           </Box>
+
           <Box flex={1}>
+            <Typography variant="h6" gutterBottom>
+              Packet Details
+            </Typography>
             <TextField
               label="Scan Packet Barcode"
               fullWidth
               onKeyDown={handleScan}
               disabled={!cameraOn}
-              sx={{ background: 'white', borderRadius: 1 }}
+              sx={{ mb: 2 }}
             />
-            <Typography mt={2}>Scanned Code: {scannedCode || 'None'}</Typography>
-            <Typography>Recording Status: {recordingStatus}</Typography>
-            <Typography>Timer: {timer}s</Typography>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle1">
+              <strong>Scanned Code:</strong> {scannedCode || 'None'}
+            </Typography>
+            <Typography variant="subtitle1">
+              <strong>Recording Status:</strong> {recordingStatus}
+            </Typography>
+            <Typography variant="subtitle1">
+              <strong>Timer:</strong> {timer}s
+            </Typography>
           </Box>
-        </Box>
+        </Stack>
       </Paper>
     </Box>
   );
