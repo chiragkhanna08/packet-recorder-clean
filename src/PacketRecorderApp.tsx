@@ -2,7 +2,14 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   Box, Button, Typography, Paper, TextField, Stack, Divider
 } from '@mui/material';
-import { BrowserMultiFormatReader } from '@zxing/browser';
+import {
+  BrowserMultiFormatReader
+} from '@zxing/browser';
+import {
+  BarcodeFormat,
+  DecodeHintType,
+  MultiFormatReader
+} from '@zxing/library';
 
 const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const [cameraOn, setCameraOn] = useState(false);
@@ -31,7 +38,11 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode },
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
         audio: false,
       });
       if (videoRef.current) {
@@ -150,7 +161,23 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   useEffect(() => {
     if (cameraOn && videoRef.current) {
-      barcodeReaderRef.current = new BrowserMultiFormatReader();
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.ITF,
+        BarcodeFormat.DATA_MATRIX,
+        BarcodeFormat.QR_CODE
+      ]);
+
+      const reader = new MultiFormatReader();
+      reader.setHints(hints);
+      barcodeReaderRef.current = new BrowserMultiFormatReader(hints);
+
       barcodeReaderRef.current.decodeFromVideoDevice(
         undefined,
         videoRef.current,
