@@ -45,26 +45,26 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     }
   };
 
-const stopCamera = () => {
-  stopRecording(); // still needed
+  const stopCamera = () => {
+    stopRecording(); // Also stop timer
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    barcodeReaderRef.current = null;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setTimer(0);
+    setCameraOn(false);
+  };
 
-  if (videoRef.current?.srcObject) {
-    const stream = videoRef.current.srcObject as MediaStream;
-    stream.getTracks().forEach((track) => track.stop());
-    videoRef.current.srcObject = null;
-  }
-
-  barcodeReaderRef.current = null;
-
-  if (intervalRef.current) {
-    clearInterval(intervalRef.current); // ✅ stop the timer loop
-    intervalRef.current = null;
-  }
-
-  setTimer(0); // ✅ reset timer display
-  setCameraOn(false);
-};
-
+  const handleLogout = () => {
+    stopCamera();
+    onLogout();
+  };
 
   const startRecording = (code: string) => {
     if (!videoRef.current || !videoRef.current.srcObject) return;
@@ -89,7 +89,10 @@ const stopCamera = () => {
       mediaRecorder.current.stop();
     }
     setRecordingStatus('idle');
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     setTimer(0);
   };
 
@@ -192,21 +195,21 @@ const stopCamera = () => {
 
   return (
     <Box
-      minHeight="100vh"
+      height="100vh"
+      width="100vw"
       display="flex"
       flexDirection="column"
       alignItems="center"
       justifyContent="flex-start"
       sx={{
         background: 'linear-gradient(to right, #ffffff, #f2f2f2)',
-        color: '#333',
         overflow: 'hidden'
       }}
     >
-      <Box mt={4} mb={2} textAlign="center">
-        <img src="/vivati-logo.gif" alt="VIVATI ONLINE Logo" style={{ height: 100, marginBottom: 12 }} />
-        <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#1976d2' }}>VIVATI ONLINE</Typography>
-        <Typography variant="subtitle1" color="textSecondary">Packet Recorder Dashboard</Typography>
+      <Box mt={2} mb={1} textAlign="center">
+        <img src="/vivati-logo.gif" alt="VIVATI ONLINE Logo" style={{ height: 80, marginBottom: 8 }} />
+        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1976d2' }}>VIVATI ONLINE</Typography>
+        <Typography variant="subtitle2" color="textSecondary">Packet Recorder Dashboard</Typography>
       </Box>
 
       <Paper
@@ -214,10 +217,9 @@ const stopCamera = () => {
           p: 3,
           width: '95%',
           maxWidth: 1300,
-          maxHeight: '85vh',
+          height: 'calc(100vh - 180px)',
           overflowY: 'auto',
-          overflowX: 'auto',
-          mb: 4
+          overflowX: 'hidden',
         }}
         elevation={4}
       >
@@ -239,7 +241,7 @@ const stopCamera = () => {
             <Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Capture Photo</Button>
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
-            <Button variant="text" color="error" fullWidth onClick={onLogout}>Logout</Button>
+            <Button variant="text" color="error" fullWidth onClick={handleLogout}>Logout</Button>
           </Grid>
         </Grid>
 
