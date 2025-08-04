@@ -46,7 +46,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   };
 
   const stopCamera = () => {
-    stopRecording(); // Also stop timer
+    stopRecording();
     if (videoRef.current?.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach((track) => track.stop());
@@ -199,94 +199,94 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
       width="100vw"
       display="flex"
       flexDirection="column"
-      alignItems="center"
-      justifyContent="flex-start"
-      sx={{
-        background: 'linear-gradient(to right, #ffffff, #f2f2f2)',
-        overflow: 'hidden'
-      }}
+      sx={{ overflow: 'hidden', background: 'linear-gradient(to right, #ffffff, #f2f2f2)' }}
     >
-      <Box mt={2} mb={1} textAlign="center">
-        <img src="/vivati-logo.gif" alt="VIVATI ONLINE Logo" style={{ height: 80, marginBottom: 8 }} />
+      {/* Fixed header */}
+      <Box height="120px" textAlign="center" pt={2}>
+        <img src="/vivati-logo.gif" alt="Logo" style={{ height: 80 }} />
         <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1976d2' }}>VIVATI ONLINE</Typography>
-        <Typography variant="subtitle2" color="textSecondary">Packet Recorder Dashboard</Typography>
+        <Typography variant="subtitle2">Packet Recorder Dashboard</Typography>
       </Box>
 
-      <Paper
-        sx={{
-          p: 3,
-          width: '95%',
-          maxWidth: 1300,
-          height: 'calc(100vh - 180px)',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-        }}
-        elevation={4}
-      >
-        <Grid container spacing={2} mb={2}>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Button variant="contained" fullWidth onClick={startCamera} disabled={cameraOn}>Start Camera</Button>
+      {/* Scrollable content */}
+      <Box flex="1" overflow="hidden">
+        <Paper
+          sx={{
+            height: '100%',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            p: 3,
+            width: '95%',
+            maxWidth: 1300,
+            mx: 'auto',
+          }}
+          elevation={4}
+        >
+          <Grid container spacing={2} mb={2}>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="contained" fullWidth onClick={startCamera} disabled={cameraOn}>Start Camera</Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="outlined" fullWidth onClick={stopCamera} disabled={!cameraOn}>Stop Camera</Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="outlined" fullWidth onClick={() => {
+                stopCamera();
+                setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+                setTimeout(() => startCamera(), 500);
+              }} disabled={!cameraOn}>🔄 Flip Camera</Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Capture Photo</Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="text" color="error" fullWidth onClick={handleLogout}>Logout</Button>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Button variant="outlined" fullWidth onClick={stopCamera} disabled={!cameraOn}>Stop Camera</Button>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Button variant="outlined" fullWidth onClick={() => {
-              stopCamera();
-              setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
-              setTimeout(() => startCamera(), 500);
-            }} disabled={!cameraOn}>🔄 Flip Camera</Button>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Capture Photo</Button>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Button variant="text" color="error" fullWidth onClick={handleLogout}>Logout</Button>
-          </Grid>
-        </Grid>
 
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" gutterBottom>Live Camera Feed</Typography>
-            <Box sx={{
-              position: 'relative',
-              border: '2px solid #1976d2',
-              borderRadius: 2,
-              overflow: 'hidden',
-              height: 450
-            }}>
-              <video ref={videoRef} style={{ width: '100%', height: '100%', borderRadius: 4 }} muted />
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Typography variant="h6" gutterBottom>Live Camera Feed</Typography>
               <Box sx={{
-                position: 'absolute',
-                bottom: 8,
-                left: 8,
-                backgroundColor: 'rgba(255,255,255,0.7)',
-                color: '#000',
-                fontSize: 14,
-                padding: '2px 8px',
-                borderRadius: 4,
-              }}>{getFormattedTimestamp()}</Box>
-            </Box>
-          </Grid>
+                position: 'relative',
+                border: '2px solid #1976d2',
+                borderRadius: 2,
+                overflow: 'hidden',
+                height: 450
+              }}>
+                <video ref={videoRef} style={{ width: '100%', height: '100%', borderRadius: 4 }} muted />
+                <Box sx={{
+                  position: 'absolute',
+                  bottom: 8,
+                  left: 8,
+                  backgroundColor: 'rgba(255,255,255,0.7)',
+                  color: '#000',
+                  fontSize: 14,
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                }}>{getFormattedTimestamp()}</Box>
+              </Box>
+            </Grid>
 
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" gutterBottom>Packet Details</Typography>
-            <Box sx={{ height: 450, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <TextField label="Scanned Code (Scanner or Camera)" fullWidth disabled value={scannedCode} sx={{ mb: 2 }} helperText="Scanned code auto-filled from scanner/camera" />
-                <Divider sx={{ my: 2 }} />
-                <TextField label="Manually Enter Code" fullWidth value={manualCode} onChange={(e) => setManualCode(e.target.value)} sx={{ mb: 1 }} />
-                <Button variant="contained" color="primary" fullWidth onClick={handleManualSubmit} disabled={!manualCode.trim()}>▶️ Submit & Record</Button>
-              </div>
-              <div>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle1"><strong>Recording Status:</strong> {recordingStatus}</Typography>
-                <Typography variant="subtitle1"><strong>Timer:</strong> {timer}s</Typography>
-              </div>
-            </Box>
+            <Grid item xs={12} md={6}>
+              <Typography variant="h6" gutterBottom>Packet Details</Typography>
+              <Box sx={{ height: 450, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <TextField label="Scanned Code (Scanner or Camera)" fullWidth disabled value={scannedCode} sx={{ mb: 2 }} helperText="Scanned code auto-filled from scanner/camera" />
+                  <Divider sx={{ my: 2 }} />
+                  <TextField label="Manually Enter Code" fullWidth value={manualCode} onChange={(e) => setManualCode(e.target.value)} sx={{ mb: 1 }} />
+                  <Button variant="contained" color="primary" fullWidth onClick={handleManualSubmit} disabled={!manualCode.trim()}>▶️ Submit & Record</Button>
+                </div>
+                <div>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle1"><strong>Recording Status:</strong> {recordingStatus}</Typography>
+                  <Typography variant="subtitle1"><strong>Timer:</strong> {timer}s</Typography>
+                </div>
+              </Box>
+            </Grid>
           </Grid>
-        </Grid>
-      </Paper>
+        </Paper>
+      </Box>
 
       <canvas ref={canvasRef} style={{ display: 'none' }} />
     </Box>
