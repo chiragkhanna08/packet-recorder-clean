@@ -195,32 +195,49 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   return (
     <Box
-      height="100vh"
-      width="100vw"
-      display="flex"
-      flexDirection="column"
-      sx={{ overflow: 'hidden', background: 'linear-gradient(to right, #ffffff, #f2f2f2)' }}
+      sx={{
+        height: '100vh',
+        width: '100vw',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        background: 'linear-gradient(to right, #ffffff, #f2f2f2)',
+      }}
     >
-      {/* Fixed header */}
-      <Box height="120px" textAlign="center" pt={2}>
-        <img src="/vivati-logo.gif" alt="Logo" style={{ height: 80 }} />
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1976d2' }}>VIVATI ONLINE</Typography>
+      {/* Header */}
+      <Box
+        sx={{
+          flexShrink: 0,
+          textAlign: 'center',
+          py: 2,
+          px: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <img src="/vivati-logo.gif" alt="Logo" style={{ maxHeight: 80, objectFit: 'contain', marginBottom: 8 }} />
+        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1976d2', textAlign: 'center', wordWrap: 'break-word' }}>
+          VIVATI ONLINE
+        </Typography>
         <Typography variant="subtitle2">Packet Recorder Dashboard</Typography>
       </Box>
 
-      {/* Scrollable content */}
+      {/* Content Area */}
       <Box flex="1" overflow="hidden">
         <Paper
+          elevation={4}
           sx={{
-            height: '100%',
-            overflowY: 'auto',
-            overflowX: 'hidden',
+            flex: 1,
+            overflow: 'hidden',
             p: 3,
             width: '95%',
             maxWidth: 1300,
             mx: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
           }}
-          elevation={4}
         >
           <Grid container spacing={2} mb={2}>
             <Grid item xs={12} sm={6} md={2.4}>
@@ -244,7 +261,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
             </Grid>
           </Grid>
 
-          <Grid container spacing={3}>
+          <Grid container spacing={3} flex={1}>
             <Grid item xs={12} md={6}>
               <Typography variant="h6" gutterBottom>Live Camera Feed</Typography>
               <Box sx={{
@@ -252,7 +269,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                 border: '2px solid #1976d2',
                 borderRadius: 2,
                 overflow: 'hidden',
-                height: 450
+                height: 390
               }}>
                 <video ref={videoRef} style={{ width: '100%', height: '100%', borderRadius: 4 }} muted />
                 <Box sx={{
@@ -270,7 +287,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
             <Grid item xs={12} md={6}>
               <Typography variant="h6" gutterBottom>Packet Details</Typography>
-              <Box sx={{ height: 450, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <Box sx={{ height: 390, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
                   <TextField label="Scanned Code (Scanner or Camera)" fullWidth disabled value={scannedCode} sx={{ mb: 2 }} helperText="Scanned code auto-filled from scanner/camera" />
                   <Divider sx={{ my: 2 }} />

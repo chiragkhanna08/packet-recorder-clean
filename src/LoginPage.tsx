@@ -30,7 +30,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
   return (
     <Box
-      minHeight="100vh"
+      height="100vh"
       display="flex"
       justifyContent="center"
       alignItems="center"
@@ -38,6 +38,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         backgroundImage: 'url("/login-bg.jpg")',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
+        overflow: 'hidden',
         px: 2,
       }}
     >
@@ -46,7 +47,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         sx={{
           p: 5,
           maxWidth: 500,
-          minHeight: 520,
           width: '100%',
           textAlign: 'center',
           backdropFilter: 'blur(15px)',
@@ -72,32 +72,31 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           onChange={(e) => setUsername(e.target.value)}
           sx={{ mb: 3 }}
         />
- <TextField
-  label="Password"
-  fullWidth
-  size="medium"
-  variant="outlined"
-  type={showPassword ? 'text' : 'password'}
-  value={password}
-  onChange={(e) => setPassword(e.target.value)}
-  onKeyDown={(e) => {
-    if (e.key === 'Enter') handleLogin();
-  }}
-  sx={{ mb: 4 }}
-  InputProps={{
-    endAdornment: (
-      <InputAdornment position="end">
-        <IconButton
-          onClick={() => setShowPassword((prev) => !prev)}
-          edge="end"
-        >
-          {showPassword ? <VisibilityOff /> : <Visibility />}
-        </IconButton>
-      </InputAdornment>
-    ),
-  }}
-/>
-
+        <TextField
+          label="Password"
+          fullWidth
+          size="medium"
+          variant="outlined"
+          type={showPassword ? 'text' : 'password'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleLogin();
+          }}
+          sx={{ mb: 4 }}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  edge="end"
+                >
+                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
 
         {error && (
           <Typography variant="body2" color="error" sx={{ mb: 2 }}>
