@@ -6,6 +6,34 @@ import Grid from '@mui/material/Grid';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { DecodeHintType, BarcodeFormat } from '@zxing/library';
 import { useTheme } from '@mui/material/styles';
+import { Camera } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+
+const convertBlobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
+};
+
+const saveVideoToStorage = async (blob: Blob, filename: string) => {
+  try {
+    const base64Data = await convertBlobToBase64(blob) as string;
+    await Filesystem.writeFile({
+      path: filename,
+      data: base64Data.split(',')[1],
+      directory: Directory.Documents,
+    });
+    console.log('✅ Video saved to device:', filename);
+  } catch (error) {
+    console.error('❌ Failed to save video:', error);
+  }
+};
+
+
 
 const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const [cameraOn, setCameraOn] = useState(false);
@@ -28,12 +56,75 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  useEffect(() => {
+  const requestPermissions = async () => {
+    try {
+      const status = await Camera.requestPermissions();
+      if (status.camera !== 'granted') {
+        alert('Camera permission is required to use this app.');
+      } else {
+        console.log('✅ Camera permission granted');
+      }
+    } catch (error) {
+      console.error('Permission request error:', error);
+    }
+  };
+  requestPermissions();
+}, []);
+
+
+
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setLogs((prev) => [`[${timestamp}] ${message}`, ...prev.slice(0, 49)]);
   };
 
+  const playBeep = () => {
+    const beep = document.getElementById('beep-sound') as HTMLAudioElement;
+    if (beep) {
+      beep.currentTime = 0;
+      beep.play().catch(() => {});
+    }
+  };
+
   const getFormattedTimestamp = () => new Date().toLocaleString();
+
+const downloadLogs = () => {
+  const fullLog = logs.slice().reverse().join('\n');
+  const blob = new Blob([fullLog], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:T]/g, '-').split('.')[0]; // yyyy-MM-dd_HH-mm-ss
+  a.download = `vivati-logs-${timestamp}.txt`;
+
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+
+const downloadScannedLogs = () => {
+  const filteredLogs = logs
+    .slice()
+    .reverse()
+    .filter(log => log.includes('Code scanned/submitted'))
+    .join('\n');
+
+  const blob = new Blob([filteredLogs], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:T]/g, '-').split('.')[0];
+  a.download = `vivati-scan-logs-${timestamp}.txt`;
+
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 
   const startCamera = async () => {
     try {
@@ -73,10 +164,17 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     addLog("Camera stopped");
   };
 
-  const handleLogout = () => {
-    stopCamera();
-    onLogout();
-  };
+ const handleLogout = () => {
+  addLog("User logged out");
+
+  // Auto download both logs
+  downloadLogs();            // ⬇️ Full log
+  downloadScannedLogs();     // 🔍 Packet scan log
+
+  stopCamera();
+  onLogout();
+};
+
 
   const startRecording = (code: string) => {
     if (!videoRef.current || !videoRef.current.srcObject) return;
@@ -88,13 +186,18 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     mediaRecorder.current.ondataavailable = (e) => {
       if (e.data.size > 0) recordedChunks.current.push(e.data);
     };
-    mediaRecorder.current.onstop = saveRecording;
+    mediaRecorder.current.onstop = (_e: Event) => {
+  saveRecording(pendingFilenameRef.current);
+};
+
     mediaRecorder.current.start();
+    
 
     setRecordingStatus('recording');
     setTimer(0);
     intervalRef.current = setInterval(() => setTimer((t) => t + 1), 1000);
     addLog(`Recording started for packet: ${code}`);
+    playBeep();
   };
 
   const stopRecording = () => {
@@ -108,18 +211,27 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     }
     setTimer(0);
     addLog("Recording stopped");
+    playBeep();
   };
 
-  const saveRecording = () => {
-    const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
+const saveRecording = async (filename: string) => {
+  const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
+  const safeFilename = `${filename}.webm`; // exact scanned code as filename
+
+  if (Capacitor.getPlatform() === 'web') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${pendingFilenameRef.current || 'packet'}.webm`;
+    a.download = safeFilename;
     a.click();
     URL.revokeObjectURL(url);
-    addLog(`Video saved: ${pendingFilenameRef.current || 'packet'}.webm`);
-  };
+  } else {
+    await saveVideoToStorage(blob, safeFilename);
+  }
+
+  addLog(`Video saved: ${safeFilename}`);
+};
+
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -143,6 +255,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
         a.click();
         URL.revokeObjectURL(url);
         addLog(`Photo captured for packet: ${scannedCode}`);
+        playBeep();
       }
     }, 'image/jpeg');
   };
@@ -150,7 +263,9 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const handleCodeInput = (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) return;
+    playBeep();
     setScannedCode(trimmed);
+    addLog(`Code scanned/submitted: ${trimmed}`);
     if (recordingStatus === 'recording') {
       stopRecording();
       setTimeout(() => startRecording(trimmed), 600);
@@ -169,20 +284,16 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.altKey || e.metaKey) return;
-
       if (e.key === 'Enter') {
         const value = inputBuffer.current.trim();
         inputBuffer.current = '';
         if (value) handleCodeInput(value);
-      } 
-      else if (e.key.length === 1) {
+      } else if (e.key.length === 1) {
         inputBuffer.current += e.key;
-      } 
-      else if (e.key === 'Backspace') {
+      } else if (e.key === 'Backspace') {
         inputBuffer.current = inputBuffer.current.slice(0, -1);
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [recordingStatus]);
@@ -226,19 +337,48 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
       <Box flex="1" overflow="auto">
         <Paper elevation={3} sx={{ width: '95%', maxWidth: 1300, mx: 'auto', p: 2 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={2.4}><Button variant="contained" fullWidth onClick={startCamera} disabled={cameraOn}>Start Camera</Button></Grid>
-            <Grid item xs={12} sm={6} md={2.4}><Button variant="outlined" fullWidth onClick={stopCamera} disabled={!cameraOn}>Stop Camera</Button></Grid>
-            <Grid item xs={12} sm={6} md={2.4}><Button variant="outlined" fullWidth onClick={() => { stopCamera(); setFacingMode(prev => prev === 'environment' ? 'user' : 'environment'); setTimeout(() => startCamera(), 500); }} disabled={!cameraOn}>Flip Camera</Button></Grid>
-            <Grid item xs={12} sm={6} md={2.4}><Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Photo</Button></Grid>
-            <Grid item xs={12} sm={6} md={2.4}><Button variant="text" color="error" fullWidth onClick={handleLogout}>Logout</Button></Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="contained" fullWidth onClick={startCamera} disabled={cameraOn}>Start Camera</Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="outlined" fullWidth onClick={stopCamera} disabled={!cameraOn}>Stop Camera</Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="outlined" fullWidth onClick={() => {
+                stopCamera();
+                setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+                setTimeout(() => startCamera(), 500);
+              }} disabled={!cameraOn}>Flip Camera</Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Photo</Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Button variant="text" color="error" fullWidth onClick={handleLogout}>Logout</Button>
+            </Grid>
           </Grid>
 
           <Grid container spacing={3} mt={1}>
             <Grid item xs={12} md={6}>
               <Typography variant="h6">Live Camera</Typography>
-              <Box sx={{ position: 'relative', border: '2px solid #1976d2', borderRadius: 2, overflow: 'hidden', width: '100%', height: isMobile ? 260 : 390 }}>
+              <Box sx={{
+                position: 'relative',
+                border: '2px solid #1976d2',
+                borderRadius: 2,
+                overflow: 'hidden',
+                width: '100%',
+                height: isMobile ? 260 : 390
+              }}>
                 <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
-                <Box sx={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.7)', padding: '2px 8px', fontSize: 12, borderRadius: 4 }}>{getFormattedTimestamp()}</Box>
+                <Box sx={{
+                  position: 'absolute',
+                  bottom: 8,
+                  left: 8,
+                  backgroundColor: 'rgba(255,255,255,0.7)',
+                  padding: '2px 8px',
+                  fontSize: 12,
+                  borderRadius: 4
+                }}>{getFormattedTimestamp()}</Box>
               </Box>
             </Grid>
 
@@ -255,18 +395,25 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>Activity Logs</Typography>
+              <Typography variant="h6">Activity Logs</Typography>
               <Paper variant="outlined" sx={{ maxHeight: 200, overflowY: 'auto', p: 1, backgroundColor: '#f9f9f9' }}>
-                {logs.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary">No activity yet</Typography>
-                ) : (
-                  logs.map((log, index) => (
-                    <Typography key={index} variant="body2">{log}</Typography>
-                  ))
-                )}
+                {logs.length === 0
+                  ? <Typography variant="body2" color="textSecondary">No activity yet</Typography>
+                  : logs.map((log, index) => <Typography key={index} variant="body2">{log}</Typography>)
+                }
               </Paper>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', mt: 2, gap: 2 }}>
+                <Button variant="outlined" color="primary" onClick={downloadLogs}>
+                  ⬇️ Download Full Log
+                </Button>
+                <Button variant="outlined" color="secondary" onClick={downloadScannedLogs}>
+                  🔍 Download Packet Scan Logs
+                </Button>
+              </Box>
             </Grid>
           </Grid>
+
+          <audio id="beep-sound" src="/beep.mp3" preload="auto" />
         </Paper>
       </Box>
 
