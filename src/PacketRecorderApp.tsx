@@ -14,6 +14,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [manualCode, setManualCode] = useState('');
   const [timer, setTimer] = useState(0);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [logs, setLogs] = useState<string[]>([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -26,6 +27,11 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs((prev) => [`[${timestamp}] ${message}`, ...prev.slice(0, 49)]);
+  };
 
   const getFormattedTimestamp = () => new Date().toLocaleString();
 
@@ -44,6 +50,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
         await videoRef.current.play();
       }
       setCameraOn(true);
+      addLog("Camera started");
     } catch (err) {
       console.error('Camera access error:', err);
     }
@@ -63,6 +70,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     }
     setTimer(0);
     setCameraOn(false);
+    addLog("Camera stopped");
   };
 
   const handleLogout = () => {
@@ -86,6 +94,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     setRecordingStatus('recording');
     setTimer(0);
     intervalRef.current = setInterval(() => setTimer((t) => t + 1), 1000);
+    addLog(`Recording started for packet: ${code}`);
   };
 
   const stopRecording = () => {
@@ -98,6 +107,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
       intervalRef.current = null;
     }
     setTimer(0);
+    addLog("Recording stopped");
   };
 
   const saveRecording = () => {
@@ -108,6 +118,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     a.download = `${pendingFilenameRef.current || 'packet'}.webm`;
     a.click();
     URL.revokeObjectURL(url);
+    addLog(`Video saved: ${pendingFilenameRef.current || 'packet'}.webm`);
   };
 
   const capturePhoto = () => {
@@ -131,6 +142,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
         a.download = `${scannedCode || 'packet'}.jpg`;
         a.click();
         URL.revokeObjectURL(url);
+        addLog(`Photo captured for packet: ${scannedCode}`);
       }
     }, 'image/jpeg');
   };
@@ -205,59 +217,28 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   return (
     <Box sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f3f3' }}>
-      {/* Header */}
       <Box sx={{ textAlign: 'center', py: 2 }}>
         <img src="/vivati-logo.gif" alt="Logo" style={{ maxHeight: 60, objectFit: 'contain' }} />
         <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1976d2' }}>VIVATI ONLINE</Typography>
         <Typography variant="subtitle2">Packet Recorder Dashboard</Typography>
       </Box>
 
-      {/* Main Content */}
       <Box flex="1" overflow="auto">
         <Paper elevation={3} sx={{ width: '95%', maxWidth: 1300, mx: 'auto', p: 2 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="contained" fullWidth onClick={startCamera} disabled={cameraOn}>Start Camera</Button>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="outlined" fullWidth onClick={stopCamera} disabled={!cameraOn}>Stop Camera</Button>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="outlined" fullWidth onClick={() => {
-                stopCamera();
-                setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
-                setTimeout(() => startCamera(), 500);
-              }} disabled={!cameraOn}>Flip Camera</Button>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Photo</Button>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="text" color="error" fullWidth onClick={handleLogout}>Logout</Button>
-            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}><Button variant="contained" fullWidth onClick={startCamera} disabled={cameraOn}>Start Camera</Button></Grid>
+            <Grid item xs={12} sm={6} md={2.4}><Button variant="outlined" fullWidth onClick={stopCamera} disabled={!cameraOn}>Stop Camera</Button></Grid>
+            <Grid item xs={12} sm={6} md={2.4}><Button variant="outlined" fullWidth onClick={() => { stopCamera(); setFacingMode(prev => prev === 'environment' ? 'user' : 'environment'); setTimeout(() => startCamera(), 500); }} disabled={!cameraOn}>Flip Camera</Button></Grid>
+            <Grid item xs={12} sm={6} md={2.4}><Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Photo</Button></Grid>
+            <Grid item xs={12} sm={6} md={2.4}><Button variant="text" color="error" fullWidth onClick={handleLogout}>Logout</Button></Grid>
           </Grid>
 
           <Grid container spacing={3} mt={1}>
             <Grid item xs={12} md={6}>
               <Typography variant="h6">Live Camera</Typography>
-              <Box sx={{
-                position: 'relative',
-                border: '2px solid #1976d2',
-                borderRadius: 2,
-                overflow: 'hidden',
-                width: '100%',
-                height: isMobile ? 260 : 390
-              }}>
+              <Box sx={{ position: 'relative', border: '2px solid #1976d2', borderRadius: 2, overflow: 'hidden', width: '100%', height: isMobile ? 260 : 390 }}>
                 <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
-                <Box sx={{
-                  position: 'absolute',
-                  bottom: 8,
-                  left: 8,
-                  backgroundColor: 'rgba(255,255,255,0.7)',
-                  padding: '2px 8px',
-                  fontSize: 12,
-                  borderRadius: 4
-                }}>{getFormattedTimestamp()}</Box>
+                <Box sx={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.7)', padding: '2px 8px', fontSize: 12, borderRadius: 4 }}>{getFormattedTimestamp()}</Box>
               </Box>
             </Grid>
 
@@ -271,6 +252,19 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                 <Typography><strong>Status:</strong> {recordingStatus}</Typography>
                 <Typography><strong>Timer:</strong> {timer}s</Typography>
               </Box>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>Activity Logs</Typography>
+              <Paper variant="outlined" sx={{ maxHeight: 200, overflowY: 'auto', p: 1, backgroundColor: '#f9f9f9' }}>
+                {logs.length === 0 ? (
+                  <Typography variant="body2" color="textSecondary">No activity yet</Typography>
+                ) : (
+                  logs.map((log, index) => (
+                    <Typography key={index} variant="body2">{log}</Typography>
+                  ))
+                )}
+              </Paper>
             </Grid>
           </Grid>
         </Paper>
