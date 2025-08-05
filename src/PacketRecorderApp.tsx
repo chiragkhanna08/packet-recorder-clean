@@ -1,10 +1,12 @@
+// PacketRecorderApp.tsx
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  Box, Button, Typography, Paper, TextField, Divider
+  Box, Button, Typography, Paper, TextField, Divider, useMediaQuery
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { DecodeHintType, BarcodeFormat } from '@zxing/library';
+import { useTheme } from '@mui/material/styles';
 
 const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const [cameraOn, setCameraOn] = useState(false);
@@ -23,6 +25,9 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const inputBuffer = useRef<string>('');
   const pendingFilenameRef = useRef<string>('');
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const getFormattedTimestamp = () => new Date().toLocaleString();
 
   const startCamera = async () => {
@@ -30,8 +35,8 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 640 },
+          height: { ideal: 480 }
         },
         audio: false,
       });
@@ -194,52 +199,18 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   }, [cameraOn]);
 
   return (
-    <Box
-      sx={{
-        height: '100vh',
-        width: '100vw',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        background: 'linear-gradient(to right, #ffffff, #f2f2f2)',
-      }}
-    >
+    <Box sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f3f3' }}>
       {/* Header */}
-      <Box
-        sx={{
-          flexShrink: 0,
-          textAlign: 'center',
-          py: 2,
-          px: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <img src="/vivati-logo.gif" alt="Logo" style={{ maxHeight: 80, objectFit: 'contain', marginBottom: 8 }} />
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1976d2', textAlign: 'center', wordWrap: 'break-word' }}>
-          VIVATI ONLINE
-        </Typography>
+      <Box sx={{ textAlign: 'center', py: 2 }}>
+        <img src="/vivati-logo.gif" alt="Logo" style={{ maxHeight: 60, objectFit: 'contain' }} />
+        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1976d2' }}>VIVATI ONLINE</Typography>
         <Typography variant="subtitle2">Packet Recorder Dashboard</Typography>
       </Box>
 
-      {/* Content Area */}
-      <Box flex="1" overflow="hidden">
-        <Paper
-          elevation={4}
-          sx={{
-            flex: 1,
-            overflow: 'hidden',
-            p: 3,
-            width: '95%',
-            maxWidth: 1300,
-            mx: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <Grid container spacing={2} mb={2}>
+      {/* Main Content */}
+      <Box flex="1" overflow="auto">
+        <Paper elevation={3} sx={{ width: '95%', maxWidth: 1300, mx: 'auto', p: 2 }}>
+          <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={2.4}>
               <Button variant="contained" fullWidth onClick={startCamera} disabled={cameraOn}>Start Camera</Button>
             </Grid>
@@ -251,54 +222,49 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                 stopCamera();
                 setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
                 setTimeout(() => startCamera(), 500);
-              }} disabled={!cameraOn}>🔄 Flip Camera</Button>
+              }} disabled={!cameraOn}>Flip Camera</Button>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Capture Photo</Button>
+              <Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Photo</Button>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
               <Button variant="text" color="error" fullWidth onClick={handleLogout}>Logout</Button>
             </Grid>
           </Grid>
 
-          <Grid container spacing={3} flex={1}>
+          <Grid container spacing={3} mt={1}>
             <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>Live Camera Feed</Typography>
+              <Typography variant="h6">Live Camera</Typography>
               <Box sx={{
                 position: 'relative',
                 border: '2px solid #1976d2',
                 borderRadius: 2,
                 overflow: 'hidden',
-                height: 390
+                width: '100%',
+                height: isMobile ? 260 : 390
               }}>
-                <video ref={videoRef} style={{ width: '100%', height: '100%', borderRadius: 4 }} muted />
+                <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
                 <Box sx={{
                   position: 'absolute',
                   bottom: 8,
                   left: 8,
                   backgroundColor: 'rgba(255,255,255,0.7)',
-                  color: '#000',
-                  fontSize: 14,
                   padding: '2px 8px',
-                  borderRadius: 4,
+                  fontSize: 12,
+                  borderRadius: 4
                 }}>{getFormattedTimestamp()}</Box>
               </Box>
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>Packet Details</Typography>
-              <Box sx={{ height: 390, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <div>
-                  <TextField label="Scanned Code (Scanner or Camera)" fullWidth disabled value={scannedCode} sx={{ mb: 2 }} helperText="Scanned code auto-filled from scanner/camera" />
-                  <Divider sx={{ my: 2 }} />
-                  <TextField label="Manually Enter Code" fullWidth value={manualCode} onChange={(e) => setManualCode(e.target.value)} sx={{ mb: 1 }} />
-                  <Button variant="contained" color="primary" fullWidth onClick={handleManualSubmit} disabled={!manualCode.trim()}>▶️ Submit & Record</Button>
-                </div>
-                <div>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1"><strong>Recording Status:</strong> {recordingStatus}</Typography>
-                  <Typography variant="subtitle1"><strong>Timer:</strong> {timer}s</Typography>
-                </div>
+              <Typography variant="h6">Packet Details</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField label="Scanned Code" fullWidth disabled value={scannedCode} />
+                <TextField label="Manual Code" fullWidth value={manualCode} onChange={(e) => setManualCode(e.target.value)} />
+                <Button variant="contained" onClick={handleManualSubmit} disabled={!manualCode.trim()}>Submit & Record</Button>
+                <Divider />
+                <Typography><strong>Status:</strong> {recordingStatus}</Typography>
+                <Typography><strong>Timer:</strong> {timer}s</Typography>
               </Box>
             </Grid>
           </Grid>
