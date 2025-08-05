@@ -1,4 +1,3 @@
-// PacketRecorderApp.tsx
 import React, { useRef, useState, useEffect } from 'react';
 import {
   Box, Button, Typography, Paper, TextField, Divider, useMediaQuery
@@ -158,14 +157,20 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.altKey || e.metaKey) return;
+
       if (e.key === 'Enter') {
         const value = inputBuffer.current.trim();
         inputBuffer.current = '';
         if (value) handleCodeInput(value);
-      } else {
+      } 
+      else if (e.key.length === 1) {
         inputBuffer.current += e.key;
+      } 
+      else if (e.key === 'Backspace') {
+        inputBuffer.current = inputBuffer.current.slice(0, -1);
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [recordingStatus]);
