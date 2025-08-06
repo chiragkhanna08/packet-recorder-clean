@@ -1,9 +1,24 @@
 import React, { useState } from 'react';
 import LoginPage from './LoginPage';
-import PacketRecorderApp from './PacketRecorderApp'; // your main dashboard component
+import PacketRecorderApp from './PacketRecorderApp';
 
 const App: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // ✅ Load login state from localStorage on first render
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('isLoggedIn') === 'true';
+  });
+
+  // ✅ Called only when logout button is clicked
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    setIsLoggedIn(false);
+  };
+
+  // ✅ Called only when login is successful
+  const handleLogin = () => {
+    localStorage.setItem('isLoggedIn', 'true');
+    setIsLoggedIn(true);
+  };
 
   return isLoggedIn ? (
     <div
@@ -13,10 +28,10 @@ const App: React.FC = () => {
         padding: '20px',
       }}
     >
-      <PacketRecorderApp onLogout={() => setIsLoggedIn(false)} />
+      <PacketRecorderApp onLogout={handleLogout} />
     </div>
   ) : (
-    <LoginPage onLogin={() => setIsLoggedIn(true)} />
+    <LoginPage onLogin={handleLogin} />
   );
 };
 

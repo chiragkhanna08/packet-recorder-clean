@@ -23,17 +23,18 @@ const saveVideoToStorage = async (blob: Blob, filename: string) => {
   try {
     const base64Data = await convertBlobToBase64(blob) as string;
     await Filesystem.writeFile({
-      path: filename,
+      path: `Download/${filename}`,
       data: base64Data.split(',')[1],
-      directory: Directory.Documents,
+      directory: Directory.External,
+      recursive: true
     });
-    console.log('✅ Video saved to device:', filename);
+    alert(`✅ Video saved to Downloads as ${filename}`);
+    console.log('✅ Saved to: Download/', filename);
   } catch (error) {
     console.error('❌ Failed to save video:', error);
+    alert('❌ Failed to save video');
   }
 };
-
-
 
 const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const [cameraOn, setCameraOn] = useState(false);
@@ -42,7 +43,16 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [manualCode, setManualCode] = useState('');
   const [timer, setTimer] = useState(0);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<string[]>(() => {
+  const saved = localStorage.getItem('vivatiLogs');
+  try {
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+});
+
+
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -57,22 +67,37 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
-  const requestPermissions = async () => {
-    try {
-      const status = await Camera.requestPermissions();
-      if (status.camera !== 'granted') {
-        alert('Camera permission is required to use this app.');
-      } else {
-        console.log('✅ Camera permission granted');
+    const requestPermissions = async () => {
+      try {
+        const status = await Camera.requestPermissions();
+        if (status.camera !== 'granted') {
+          alert('Camera permission is required to use this app.');
+        } else {
+          console.log('✅ Camera permission granted');
+        }
+      } catch (error) {
+        console.error('Permission request error:', error);
       }
-    } catch (error) {
-      console.error('Permission request error:', error);
+    };
+    requestPermissions();
+  }, []);
+
+  // ✅ Load saved logs from localStorage
+  useEffect(() => {
+    const savedLogs = localStorage.getItem('vivatiLogs');
+    if (savedLogs) {
+      try {
+        setLogs(JSON.parse(savedLogs));
+      } catch (e) {
+        console.error('Failed to parse saved logs:', e);
+      }
     }
-  };
-  requestPermissions();
-}, []);
+  }, []);
 
-
+  // ✅ Persist logs to localStorage
+  useEffect(() => {
+    localStorage.setItem('vivatiLogs', JSON.stringify(logs));
+  }, [logs]);
 
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -89,42 +114,36 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   const getFormattedTimestamp = () => new Date().toLocaleString();
 
-const downloadLogs = () => {
-  const fullLog = logs.slice().reverse().join('\n');
-  const blob = new Blob([fullLog], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
+  const downloadLogs = () => {
+    const fullLog = logs.slice().reverse().join('\n');
+    const blob = new Blob([fullLog], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:T]/g, '-').split('.')[0];
+    a.download = `vivati-logs-${timestamp}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-  const now = new Date();
-  const timestamp = now.toISOString().replace(/[:T]/g, '-').split('.')[0]; // yyyy-MM-dd_HH-mm-ss
-  a.download = `vivati-logs-${timestamp}.txt`;
+  const downloadScannedLogs = () => {
+    const filteredLogs = logs
+      .slice()
+      .reverse()
+      .filter(log => log.includes('Code scanned/submitted'))
+      .join('\n');
 
-  a.click();
-  URL.revokeObjectURL(url);
-};
-
-
-const downloadScannedLogs = () => {
-  const filteredLogs = logs
-    .slice()
-    .reverse()
-    .filter(log => log.includes('Code scanned/submitted'))
-    .join('\n');
-
-  const blob = new Blob([filteredLogs], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-
-  const now = new Date();
-  const timestamp = now.toISOString().replace(/[:T]/g, '-').split('.')[0];
-  a.download = `vivati-scan-logs-${timestamp}.txt`;
-
-  a.click();
-  URL.revokeObjectURL(url);
-};
-
+    const blob = new Blob([filteredLogs], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:T]/g, '-').split('.')[0];
+    a.download = `vivati-scan-logs-${timestamp}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const startCamera = async () => {
     try {
@@ -164,17 +183,15 @@ const downloadScannedLogs = () => {
     addLog("Camera stopped");
   };
 
- const handleLogout = () => {
-  addLog("User logged out");
-
-  // Auto download both logs
-  downloadLogs();            // ⬇️ Full log
-  downloadScannedLogs();     // 🔍 Packet scan log
-
-  stopCamera();
-  onLogout();
-};
-
+  const handleLogout = () => {
+    addLog("User logged out");
+    downloadLogs();
+    downloadScannedLogs();
+    stopCamera();
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('vivatiLogs'); // ✅ Clear logs
+    onLogout();
+  };
 
   const startRecording = (code: string) => {
     if (!videoRef.current || !videoRef.current.srcObject) return;
@@ -186,12 +203,10 @@ const downloadScannedLogs = () => {
     mediaRecorder.current.ondataavailable = (e) => {
       if (e.data.size > 0) recordedChunks.current.push(e.data);
     };
-    mediaRecorder.current.onstop = (_e: Event) => {
-  saveRecording(pendingFilenameRef.current);
-};
-
+    mediaRecorder.current.onstop = () => {
+      saveRecording(pendingFilenameRef.current);
+    };
     mediaRecorder.current.start();
-    
 
     setRecordingStatus('recording');
     setTimer(0);
@@ -214,24 +229,21 @@ const downloadScannedLogs = () => {
     playBeep();
   };
 
-const saveRecording = async (filename: string) => {
-  const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
-  const safeFilename = `${filename}.webm`; // exact scanned code as filename
-
-  if (Capacitor.getPlatform() === 'web') {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = safeFilename;
-    a.click();
-    URL.revokeObjectURL(url);
-  } else {
-    await saveVideoToStorage(blob, safeFilename);
-  }
-
-  addLog(`Video saved: ${safeFilename}`);
-};
-
+  const saveRecording = async (filename: string) => {
+    const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
+    const safeFilename = `${filename}.webm`;
+    if (Capacitor.getPlatform() === 'web') {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = safeFilename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      await saveVideoToStorage(blob, safeFilename);
+    }
+    addLog(`Video saved: ${safeFilename}`);
+  };
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -336,6 +348,7 @@ const saveRecording = async (filename: string) => {
 
       <Box flex="1" overflow="auto">
         <Paper elevation={3} sx={{ width: '95%', maxWidth: 1300, mx: 'auto', p: 2 }}>
+          {/* Buttons Row */}
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={2.4}>
               <Button variant="contained" fullWidth onClick={startCamera} disabled={cameraOn}>Start Camera</Button>
@@ -358,6 +371,7 @@ const saveRecording = async (filename: string) => {
             </Grid>
           </Grid>
 
+          {/* Camera and Packet Details */}
           <Grid container spacing={3} mt={1}>
             <Grid item xs={12} md={6}>
               <Typography variant="h6">Live Camera</Typography>
@@ -386,7 +400,15 @@ const saveRecording = async (filename: string) => {
               <Typography variant="h6">Packet Details</Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <TextField label="Scanned Code" fullWidth disabled value={scannedCode} />
-                <TextField label="Manual Code" fullWidth value={manualCode} onChange={(e) => setManualCode(e.target.value)} />
+                <TextField
+                  label="Manual Code"
+                  fullWidth
+                  value={manualCode}
+                  onChange={(e) => setManualCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleManualSubmit();
+                  }}
+                />
                 <Button variant="contained" onClick={handleManualSubmit} disabled={!manualCode.trim()}>Submit & Record</Button>
                 <Divider />
                 <Typography><strong>Status:</strong> {recordingStatus}</Typography>
