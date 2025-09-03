@@ -148,13 +148,16 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: facingMode },
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        },
-        audio: false,
-      });
+  video: {
+    facingMode: { ideal: facingMode },
+    width: { ideal: 1920 },   // Full HD width
+    height: { ideal: 1080 },  // Full HD height
+    frameRate: { ideal: 30, max: 60 } // Optional: smoother recording
+  },
+  audio: false,
+});
+
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -338,97 +341,339 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     };
   }, [cameraOn]);
 
-  return (
-    <Box sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f3f3' }}>
+return (
+    <Box
+      sx={{
+        height: '100vh',
+        width: '100vw',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg,#0f2027,#203a43,#2c5364)',
+        color: '#fff'
+      }}
+    >
+      {/* Header */}
       <Box sx={{ textAlign: 'center', py: 2 }}>
-        <img src="/vivati-logo.gif" alt="Logo" style={{ maxHeight: 60, objectFit: 'contain' }} />
-        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1976d2' }}>VIVATI ONLINE</Typography>
-        <Typography variant="subtitle2">Packet Recorder Dashboard</Typography>
+        <img src="/vivati-logo.gif" alt="Logo" style={{ maxHeight: 60 }} />
+        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#90caf9' }}>
+          VIVATI ONLINE
+        </Typography>
+        <Typography variant="subtitle2" sx={{ color: 'lightgray' }}>
+          Packet Recorder Dashboard
+        </Typography>
       </Box>
 
+      {/* Main Content */}
       <Box flex="1" overflow="auto">
-        <Paper elevation={3} sx={{ width: '95%', maxWidth: 1300, mx: 'auto', p: 2 }}>
+        <Paper
+          elevation={6}
+          sx={{
+            width: '95%',
+            maxWidth: 1300,
+            mx: 'auto',
+            p: 3,
+            borderRadius: 4,
+            backgroundColor: 'rgba(30,30,30,0.95)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+          }}
+        >
           {/* Buttons Row */}
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="contained" fullWidth onClick={startCamera} disabled={cameraOn}>Start Camera</Button>
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={startCamera}
+                disabled={cameraOn}
+                sx={{
+                  borderRadius: 3,
+                  py: 1.2,
+                  background: 'linear-gradient(90deg,#1976d2,#42a5f5)',
+                }}
+              >
+                🎥 Start Camera
+              </Button>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="outlined" fullWidth onClick={stopCamera} disabled={!cameraOn}>Stop Camera</Button>
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={stopCamera}
+                disabled={!cameraOn}
+                sx={{
+                  borderRadius: 3,
+                  py: 1.2,
+                  color: '#fff',
+                  borderColor: '#90caf9',
+                }}
+              >
+                ⏹ Stop Camera
+              </Button>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="outlined" fullWidth onClick={() => {
-                stopCamera();
-                setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
-                setTimeout(() => startCamera(), 500);
-              }} disabled={!cameraOn}>Flip Camera</Button>
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={() => {
+                  stopCamera();
+                  setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+                  setTimeout(() => startCamera(), 500);
+                }}
+                disabled={!cameraOn}
+                sx={{
+                  borderRadius: 3,
+                  py: 1.2,
+                  color: '#fff',
+                  borderColor: '#90caf9',
+                }}
+              >
+                🔄 Flip Camera
+              </Button>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="contained" color="secondary" fullWidth onClick={capturePhoto} disabled={!cameraOn}>📸 Photo</Button>
+              <Button
+                variant="contained"
+                fullWidth
+                color="secondary"
+                onClick={capturePhoto}
+                disabled={!cameraOn}
+                sx={{
+                  borderRadius: 3,
+                  py: 1.2,
+                  background: 'linear-gradient(90deg,#9c27b0,#e040fb)',
+                }}
+              >
+                📸 Photo
+              </Button>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Button variant="text" color="error" fullWidth onClick={handleLogout}>Logout</Button>
+              <Button
+                variant="text"
+                color="error"
+                fullWidth
+                onClick={handleLogout}
+                sx={{ borderRadius: 3, py: 1.2, color: '#ef5350' }}
+              >
+                🚪 Logout
+              </Button>
             </Grid>
           </Grid>
 
-          {/* Camera and Packet Details */}
-          <Grid container spacing={3} mt={1}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6">Live Camera</Typography>
-              <Box sx={{
-                position: 'relative',
-                border: '2px solid #1976d2',
-                borderRadius: 2,
-                overflow: 'hidden',
-                width: '100%',
-                height: isMobile ? 260 : 390
-              }}>
-                <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
-                <Box sx={{
-                  position: 'absolute',
-                  bottom: 8,
-                  left: 8,
-                  backgroundColor: 'rgba(255,255,255,0.7)',
-                  padding: '2px 8px',
-                  fontSize: 12,
-                  borderRadius: 4
-                }}>{getFormattedTimestamp()}</Box>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6">Packet Details</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField label="Scanned Code" fullWidth disabled value={scannedCode} />
-                <TextField
-                  label="Manual Code"
-                  fullWidth
-                  value={manualCode}
-                  onChange={(e) => setManualCode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleManualSubmit();
+          {/* Camera + Packet Details */}
+          {cameraOn ? (
+            // 🔹 Fullscreen-style camera with details BELOW
+            <Grid container spacing={3} mt={2}>
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#90caf9' }}>
+                  Live Camera
+                </Typography>
+                <Box
+                  sx={{
+                    position: 'relative',
+                    border: '2px solid #1976d2',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    width: '100%',
+                    transition: 'height 0.5s ease',
+                    height: '70vh',
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
                   }}
-                />
-                <Button variant="contained" onClick={handleManualSubmit} disabled={!manualCode.trim()}>Submit & Record</Button>
-                <Divider />
-                <Typography><strong>Status:</strong> {recordingStatus}</Typography>
-                <Typography><strong>Timer:</strong> {timer}s</Typography>
-              </Box>
-            </Grid>
+                >
+                  <video
+                    ref={videoRef}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    muted
+                  />
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      bottom: 8,
+                      left: 8,
+                      backgroundColor: 'rgba(0,0,0,0.7)',
+                      color: '#fff',
+                      padding: '4px 10px',
+                      fontSize: 12,
+                      borderRadius: 2,
+                    }}
+                  >
+                    {getFormattedTimestamp()}
+                  </Box>
+                </Box>
+              </Grid>
 
+              {/* ✅ Packet Details BELOW camera */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#90caf9' }}>
+                  Packet Details
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField
+                    label="Scanned Code"
+                    fullWidth
+                    disabled
+                    value={scannedCode}
+                    sx={{
+                      input: { color: '#fff' },
+                      label: { color: 'gray' },
+                    }}
+                  />
+                  <TextField
+                    label="Manual Code"
+                    fullWidth
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleManualSubmit();
+                    }}
+                    sx={{
+                      input: { color: '#fff' },
+                      label: { color: 'gray' },
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleManualSubmit}
+                    disabled={!manualCode.trim()}
+                    sx={{
+                      borderRadius: 3,
+                      py: 1.2,
+                      background: 'linear-gradient(90deg,#1976d2,#42a5f5)',
+                    }}
+                  >
+                    📦 Submit & Record
+                  </Button>
+                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                  <Typography><strong>Status:</strong> {recordingStatus}</Typography>
+                  <Typography><strong>Timer:</strong> {timer}s</Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          ) : (
+            // 🔹 Normal split layout when OFF
+            <Grid container spacing={3} mt={2}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#90caf9' }}>
+                  Live Camera
+                </Typography>
+                <Box
+                  sx={{
+                    position: 'relative',
+                    border: '2px solid #1976d2',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    width: '100%',
+                    height: isMobile ? 220 : 320,
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+                  }}
+                >
+                  <video
+                    ref={videoRef}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    muted
+                  />
+                </Box>
+              </Grid>
+
+              {/* Packet Details side by side */}
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#90caf9' }}>
+                  Packet Details
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField
+                    label="Scanned Code"
+                    fullWidth
+                    disabled
+                    value={scannedCode}
+                    sx={{
+                      input: { color: '#fff' },
+                      label: { color: 'gray' },
+                    }}
+                  />
+                  <TextField
+                    label="Manual Code"
+                    fullWidth
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleManualSubmit();
+                    }}
+                    sx={{
+                      input: { color: '#fff' },
+                      label: { color: 'gray' },
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleManualSubmit}
+                    disabled={!manualCode.trim()}
+                    sx={{
+                      borderRadius: 3,
+                      py: 1.2,
+                      background: 'linear-gradient(90deg,#1976d2,#42a5f5)',
+                    }}
+                  >
+                    📦 Submit & Record
+                  </Button>
+                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                  <Typography><strong>Status:</strong> {recordingStatus}</Typography>
+                  <Typography><strong>Timer:</strong> {timer}s</Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+
+          {/* Logs (always visible) */}
+          <Grid container spacing={3} mt={2}>
             <Grid item xs={12}>
-              <Typography variant="h6">Activity Logs</Typography>
-              <Paper variant="outlined" sx={{ maxHeight: 200, overflowY: 'auto', p: 1, backgroundColor: '#f9f9f9' }}>
-                {logs.length === 0
-                  ? <Typography variant="body2" color="textSecondary">No activity yet</Typography>
-                  : logs.map((log, index) => <Typography key={index} variant="body2">{log}</Typography>)
-                }
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#90caf9' }}>
+                Activity Logs
+              </Typography>
+              <Paper
+                variant="outlined"
+                sx={{
+                  maxHeight: 220,
+                  overflowY: 'auto',
+                  p: 2,
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(40,40,40,0.95)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                }}
+              >
+                {logs.length === 0 ? (
+                  <Typography variant="body2" color="gray">
+                    No activity yet
+                  </Typography>
+                ) : (
+                  logs.map((log, index) => (
+                    <Typography key={index} variant="body2" sx={{ color: '#fff' }}>
+                      {log}
+                    </Typography>
+                  ))
+                )}
               </Paper>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', mt: 2, gap: 2 }}>
-                <Button variant="outlined" color="primary" onClick={downloadLogs}>
+                <Button
+                  variant="outlined"
+                  onClick={downloadLogs}
+                  sx={{
+                    borderRadius: 3,
+                    color: '#90caf9',
+                    borderColor: '#90caf9',
+                  }}
+                >
                   ⬇️ Download Full Log
                 </Button>
-                <Button variant="outlined" color="secondary" onClick={downloadScannedLogs}>
+                <Button
+                  variant="outlined"
+                  onClick={downloadScannedLogs}
+                  sx={{
+                    borderRadius: 3,
+                    color: '#e040fb',
+                    borderColor: '#e040fb',
+                  }}
+                >
                   🔍 Download Packet Scan Logs
                 </Button>
               </Box>
@@ -437,6 +682,11 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
           <audio id="beep-sound" src="/beep.mp3" preload="auto" />
         </Paper>
+      </Box>
+
+      {/* Footer */}
+      <Box textAlign="center" sx={{ py: 2, color: 'gray', fontSize: '0.85rem' }}>
+        © 2025 Vivati Online Pvt Ltd | All rights reserved
       </Box>
 
       <canvas ref={canvasRef} style={{ display: 'none' }} />
