@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import LoginPage from './LoginPage';
 import PacketRecorderApp from './PacketRecorderApp';
+import "@fontsource/poppins/400.css";
+import "@fontsource/poppins/600.css";
+import "@fontsource/poppins/700.css";
+
 
 const App: React.FC = () => {
   // ✅ Load login state from localStorage on first render
@@ -20,19 +24,21 @@ const App: React.FC = () => {
     setIsLoggedIn(true);
   };
 
-  return isLoggedIn ? (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(to right, #fdfbfb, #ebedee)',
-        padding: '20px',
-      }}
-    >
-      <PacketRecorderApp onLogout={handleLogout} />
-    </div>
-  ) : (
-    <LoginPage onLogin={handleLogin} />
-  );
+return isLoggedIn ? (
+  <div
+    style={{
+      minHeight: '100vh',
+      width: '100vw',
+      background: 'linear-gradient(to right, #fdfbfb, #ebedee)',
+      overflow: 'hidden',   // 🔥 prevents scrollbars
+    }}
+  >
+    <PacketRecorderApp onLogout={handleLogout} />
+  </div>
+) : (
+  <LoginPage onLogin={handleLogin} />
+);
+
 };
 
 export default App;
