@@ -149,11 +149,12 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
   video: {
-    facingMode: { ideal: facingMode },
-    width: { ideal: 1920 },   // Full HD width
-    height: { ideal: 1080 },  // Full HD height
-    frameRate: { ideal: 30, max: 60 } // Optional: smoother recording
-  },
+  facingMode: { ideal: facingMode },
+  width: { ideal: 1280 },   // ✅ 720p width
+  height: { ideal: 720 },   // ✅ 720p height
+  frameRate: { ideal: 30, max: 60 }
+},
+
   audio: false,
 });
 
@@ -196,27 +197,46 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     onLogout();
   };
 
-  const startRecording = (code: string) => {
-    if (!videoRef.current || !videoRef.current.srcObject) return;
-    pendingFilenameRef.current = code;
-    recordedChunks.current = [];
+const startRecording = (code: string) => {
+  if (!videoRef.current || !videoRef.current.srcObject) return;
+  pendingFilenameRef.current = code;
+  recordedChunks.current = [];
 
-    const stream = videoRef.current.srcObject as MediaStream;
-    mediaRecorder.current = new MediaRecorder(stream);
-    mediaRecorder.current.ondataavailable = (e) => {
-      if (e.data.size > 0) recordedChunks.current.push(e.data);
-    };
-    mediaRecorder.current.onstop = () => {
-      saveRecording(pendingFilenameRef.current);
-    };
-    mediaRecorder.current.start();
+  const stream = videoRef.current.srcObject as MediaStream;
+  mediaRecorder.current = new MediaRecorder(stream);
 
-    setRecordingStatus('recording');
-    setTimer(0);
-    intervalRef.current = setInterval(() => setTimer((t) => t + 1), 1000);
-    addLog(`Recording started for packet: ${code}`);
-    playBeep();
+  mediaRecorder.current.ondataavailable = (e) => {
+    if (e.data.size > 0) recordedChunks.current.push(e.data);
   };
+
+  mediaRecorder.current.onstop = () => {
+    saveRecording(pendingFilenameRef.current);
+  };
+
+  mediaRecorder.current.onerror = (e: Event) => {
+    const err = (e as any).error;
+    console.error("❌ MediaRecorder error:", err);
+    stopRecording();
+  };
+
+  mediaRecorder.current.start();
+
+  setRecordingStatus('recording');
+  setTimer(0);
+
+  // ✅ Clear old interval before starting new one
+  if (intervalRef.current) {
+    clearInterval(intervalRef.current);
+  }
+
+  intervalRef.current = setInterval(() => {
+    setTimer((t) => t + 1);
+  }, 1000);
+
+  addLog(`Recording started for packet: ${code}`);
+  playBeep();
+};
+
 
   const stopRecording = () => {
     if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
@@ -282,11 +302,12 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     setScannedCode(trimmed);
     addLog(`Code scanned/submitted: ${trimmed}`);
     if (recordingStatus === 'recording') {
-      stopRecording();
-      setTimeout(() => startRecording(trimmed), 600);
-    } else {
-      startRecording(trimmed);
-    }
+  stopRecording();
+  setTimeout(() => startRecording(trimmed), 800); // ✅ added small delay
+} else {
+  startRecording(trimmed);
+}
+
   };
 
   const handleManualSubmit = () => {
