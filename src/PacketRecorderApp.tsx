@@ -202,8 +202,43 @@ const startRecording = (code: string) => {
   pendingFilenameRef.current = code;
   recordedChunks.current = [];
 
-  const stream = videoRef.current.srcObject as MediaStream;
-  mediaRecorder.current = new MediaRecorder(stream);
+  // ✅ Create a canvas to draw video + overlays
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
+  const video = videoRef.current;
+
+  // Set canvas size = video size
+  canvas.width = video.videoWidth || 1280;
+  canvas.height = video.videoHeight || 720;
+
+  // Draw loop
+  const drawFrame = () => {
+    if (!ctx || !videoRef.current) return;
+
+    // Draw the camera video
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // ✅ Timestamp overlay (bottom-left)
+    ctx.fillStyle = 'white';
+    ctx.font = '20px Poppins, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(new Date().toLocaleString(), 10, canvas.height - 40);
+
+    // ✅ Scanned code overlay (bottom-center)
+    if (pendingFilenameRef.current) {
+      ctx.fillStyle = 'yellow';
+      ctx.font = '22px Poppins, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(pendingFilenameRef.current, canvas.width / 2, canvas.height - 10);
+    }
+
+    requestAnimationFrame(drawFrame);
+  };
+  drawFrame();
+
+  // ✅ Capture from canvas instead of raw camera
+  const canvasStream = canvas.captureStream(30); // 30 FPS
+  mediaRecorder.current = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
 
   mediaRecorder.current.ondataavailable = (e) => {
     if (e.data.size > 0) recordedChunks.current.push(e.data);
@@ -224,18 +259,13 @@ const startRecording = (code: string) => {
   setRecordingStatus('recording');
   setTimer(0);
 
-  // ✅ Clear old interval before starting new one
-  if (intervalRef.current) {
-    clearInterval(intervalRef.current);
-  }
-
-  intervalRef.current = setInterval(() => {
-    setTimer((t) => t + 1);
-  }, 1000);
+  if (intervalRef.current) clearInterval(intervalRef.current);
+  intervalRef.current = setInterval(() => setTimer((t) => t + 1), 1000);
 
   addLog(`Recording started for packet: ${code}`);
   playBeep();
 };
+
 
 
   const stopRecording = () => {
