@@ -1,20 +1,19 @@
 {
-  "env": {
-    "browser": true,
-    "es2021": true
-  },
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
   "extends": [
-    "eslint:recommended",
-    "plugin:react/recommended",
-    "plugin:react-hooks/recommended"
+    "react-app",
+    "react-app/jest",
+    "plugin:@typescript-eslint/recommended"
   ],
-  "plugins": ["react", "react-hooks"],
-  "parserOptions": {
-    "ecmaFeatures": {
-      "jsx": true
-    },
-    "ecmaVersion": "latest",
-    "sourceType": "module"
-  },
-  "rules": {}
+
+  "rules": {
+    "no-undef": "off",
+    "@typescript-eslint/no-unused-vars": ["warn"],
+    "@typescript-eslint/no-empty-function": "off",
+    "@typescript-eslint/ban-ts-comment": "off"
+  }
+
+
 }
