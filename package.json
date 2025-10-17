@@ -60,7 +60,8 @@
     "@types/react-dom": "^18.3.3",
     "electron": "^29.1.0",
     "electron-builder": "^26.0.12",
-    "electron-packager": "^17.1.2"
+    "electron-packager": "^17.1.2",
+    "eslint-plugin-react-hooks": "^7.0.0"
   },
   "browserslist": {
     "production": [
