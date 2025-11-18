@@ -43,6 +43,7 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [manualCode, setManualCode] = useState('');
   const [timer, setTimer] = useState(0);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [scanMode, setScanMode] = useState<'camera' | 'scanner'>('scanner');
   const [logs, setLogs] = useState<string[]>(() => {
   const saved = localStorage.getItem('vivatiLogs');
   try {
@@ -365,32 +366,71 @@ const startRecording = (code: string) => {
   }, [recordingStatus]);
 
   useEffect(() => {
-    if (cameraOn && videoRef.current) {
-      const hints = new Map();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.CODE_39,
-        BarcodeFormat.EAN_13,
-        BarcodeFormat.EAN_8,
-        BarcodeFormat.UPC_A,
-        BarcodeFormat.UPC_E,
-        BarcodeFormat.ITF,
-        BarcodeFormat.DATA_MATRIX,
-        BarcodeFormat.QR_CODE
-      ]);
-      barcodeReaderRef.current = new BrowserMultiFormatReader(hints);
-      barcodeReaderRef.current.decodeFromVideoDevice(
-        undefined,
-        videoRef.current,
-        (result) => {
-          if (result) handleCodeInput(result.getText());
-        }
-      );
+  if (cameraOn && videoRef.current) {
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.CODE_39,
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.ITF,
+      BarcodeFormat.DATA_MATRIX,
+      BarcodeFormat.QR_CODE
+    ]);
+
+    barcodeReaderRef.current = new BrowserMultiFormatReader(hints);
+
+    barcodeReaderRef.current.decodeFromVideoDevice(
+      undefined,
+      videoRef.current,
+      (result) => {
+        if (!result) return;
+
+        // 🚫 BLOCK CAMERA SCANS in SCANNER MODE
+        if (scanMode !== 'camera') return;
+
+        // 🚫 BLOCK CAMERA SCANS DURING RECORDING
+        if (recordingStatus === 'recording') return;
+
+        // ✔ ALLOW camera scan only when idle + camera mode
+        handleCodeInput(result.getText());
+      }
+    );
+  }
+
+  return () => {
+    barcodeReaderRef.current = null;
+  };
+}, [cameraOn, scanMode, recordingStatus]);
+
+// Cleanup when component unmounts (logout or refresh)
+useEffect(() => {
+  return () => {
+    console.log("🧹 Cleanup triggered (logout or refresh)");
+
+    // 1️⃣ Stop camera stream
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
-    return () => {
-      barcodeReaderRef.current = null;
-    };
-  }, [cameraOn]);
+
+    // 2️⃣ Stop ZXing by removing reference (decoding stops when stream stops)
+    barcodeReaderRef.current = null;
+
+    // 3️⃣ Clear timer
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+}, []);
+
+
+
+
 
 return (
   <Box sx={{ height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden' }}>
@@ -446,7 +486,14 @@ return (
       >
         🎥 Start Camera
       </Button>
-
+      <Button
+  variant="contained"
+  color="info"
+  onClick={() => setScanMode(prev => prev === 'camera' ? 'scanner' : 'camera')}
+  sx={{ flex: 1 }}
+>
+  {scanMode === 'camera' ? "📷 Camera Mode" : "🔌 Scanner Mode"}
+</Button>
       <Button
         variant="outlined"
         onClick={stopCamera}
