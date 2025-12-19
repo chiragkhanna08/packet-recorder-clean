@@ -4,7 +4,6 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { BrowserMultiFormatReader } from '@zxing/browser';
-import { DecodeHintType, BarcodeFormat } from '@zxing/library';
 import { useTheme } from '@mui/material/styles';
 import { Camera } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
@@ -59,7 +58,6 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const recordedChunks = useRef<Blob[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const barcodeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const inputBuffer = useRef<string>('');
   const pendingFilenameRef = useRef<string>('');
 
@@ -145,47 +143,55 @@ const PacketRecorderApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     URL.revokeObjectURL(url);
   };
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-  video: {
-  facingMode: { ideal: facingMode },
-  width: { ideal: 1280 },   // ✅ 720p width
-  height: { ideal: 720 },   // ✅ 720p height
-  frameRate: { ideal: 30, max: 60 }
-},
-
-  audio: false,
-});
-
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setCameraOn(true);
-      addLog("Camera started");
-    } catch (err) {
-      console.error('Camera access error:', err);
+const startCamera = async () => {
+  try {
+    if (!videoRef.current) {
+      console.warn("Video element not ready");
+      return;
     }
-  };
 
-  const stopCamera = () => {
-    stopRecording();
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    barcodeReaderRef.current = null;
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    setTimer(0);
-    setCameraOn(false);
-    addLog("Camera stopped");
-  };
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: facingMode,
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    });
+
+    videoRef.current.srcObject = stream;
+
+    videoRef.current.onloadedmetadata = () => {
+      videoRef.current?.play();
+    };
+
+    setCameraOn(true);
+    addLog("Camera started (recording only)");
+  } catch (err) {
+    console.error("Camera access error:", err);
+  }
+};
+
+
+const stopCamera = () => {
+  stopRecording();
+
+  if (videoRef.current?.srcObject) {
+    const stream = videoRef.current.srcObject as MediaStream;
+    stream.getTracks().forEach(track => track.stop());
+    videoRef.current.srcObject = null;
+  }
+
+  if (intervalRef.current) {
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+  }
+
+  setTimer(0);
+  setCameraOn(false);
+  addLog("Camera stopped");
+};
+
 
   const handleLogout = () => {
     addLog("User logged out");
@@ -364,58 +370,36 @@ const startRecording = (code: string) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [recordingStatus]);
 
-  useEffect(() => {
-    if (cameraOn && videoRef.current) {
-      const hints = new Map();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.CODE_39,
-        BarcodeFormat.EAN_13,
-        BarcodeFormat.EAN_8,
-        BarcodeFormat.UPC_A,
-        BarcodeFormat.UPC_E,
-        BarcodeFormat.ITF,
-        BarcodeFormat.DATA_MATRIX,
-        BarcodeFormat.QR_CODE
-      ]);
-      barcodeReaderRef.current = new BrowserMultiFormatReader(hints);
-      barcodeReaderRef.current.decodeFromVideoDevice(
-        undefined,
-        videoRef.current,
-        (result) => {
-          if (result) handleCodeInput(result.getText());
-        }
-      );
-    }
-    return () => {
-      barcodeReaderRef.current = null;
-    };
-  }, [cameraOn]);
+
 
 return (
   <Box sx={{ height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden' }}>
-    {/* Fullscreen video - only when camera is ON */}
-    {cameraOn && (
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 0,
-          backgroundColor: 'black',
-        }}
-      >
-        <video
-          ref={videoRef}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          muted
-          autoPlay
-          playsInline
-        />
-      </Box>
-    )}
+    {/* Fullscreen video – ALWAYS mounted */}
+<Box
+  sx={{
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 0,
+    backgroundColor: 'black',
+    display: cameraOn ? 'block' : 'none', // ✅ hide, don’t unmount
+  }}
+>
+  <video
+    ref={videoRef}
+    muted
+    autoPlay
+    playsInline
+    style={{
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+    }}
+  />
+</Box>
+
 
     {/* Controls Navbar (always at top, one row) */}
     <Box
